@@ -91,7 +91,7 @@ Next.js 14 + Tailwind CSS storefront for the [sudo] macro pad.
 Clerk auth, Shopify checkout, Supabase order tracking.
 Terminal brutalism aesthetic with pixel font + monospace."
 
-git remote add origin "git@github.com:$GITHUB_USER/sudo-supply-web.git"
+git remote add origin "https://github.com/$GITHUB_USER/sudo-supply-web.git"
 git push -u origin main --force
 
 # --- 5. Initialize and push app repo ---
@@ -106,7 +106,7 @@ Swift/SwiftUI menu bar daemon for the sudo macro pad.
 Dual detection (AX tree + Vision OCR), OTA updater via GitHub Releases.
 Anti-cheat safe — uses AXUIElement.performAction, no synthetic input."
 
-git remote add origin "git@github.com:$GITHUB_USER/sudo-app.git"
+git remote add origin "https://github.com/$GITHUB_USER/sudo-app.git"
 git push -u origin main --force
 
 # --- 6. Done ---
