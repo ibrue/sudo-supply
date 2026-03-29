@@ -16,6 +16,9 @@ export function Nav() {
           <Link href="/shop" className="hover-accent text-text-muted hover:text-text transition-colors">
             ~/shop
           </Link>
+          <Link href="/download" className="hover-accent text-text-muted hover:text-text transition-colors">
+            ~/app
+          </Link>
           <Link href="/about" className="hover-accent text-text-muted hover:text-text transition-colors">
             ~/about
           </Link>
