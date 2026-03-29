@@ -33,7 +33,7 @@ export default function AboutPage() {
             hackable.
           </p>
           <a
-            href="https://github.com/ibrue/sudo-supply"
+            href="https://github.com/ibrue/sudo-supply-web"
             target="_blank"
             rel="noopener noreferrer"
             className="btn-terminal text-xs"
@@ -67,12 +67,23 @@ export default function AboutPage() {
           <p className="text-text-muted">
             <span className="text-text">github:</span>{" "}
             <a
-              href="https://github.com/ibrue/sudo-supply"
+              href="https://github.com/ibrue/sudo-supply-web"
               target="_blank"
               rel="noopener noreferrer"
               className="hover-accent text-accent"
             >
-              ibrue/sudo-supply
+              ibrue/sudo-supply-web
+            </a>
+          </p>
+          <p className="text-text-muted">
+            <span className="text-text">app:</span>{" "}
+            <a
+              href="https://github.com/ibrue/sudo-app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover-accent text-accent"
+            >
+              ibrue/sudo-app
             </a>
           </p>
         </section>

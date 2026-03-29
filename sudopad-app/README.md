@@ -17,7 +17,7 @@ cd sudopad-app
 ./create-dmg.sh         # creates Sudo-1.0.0-macOS.dmg
 ```
 
-**Or download** from [sudo.supply/download](https://sudo.supply/download) or [GitHub Releases](https://github.com/ibrue/sudo-supply/releases).
+**Or download** from [sudo.supply/download](https://sudo.supply/download) or [GitHub Releases](https://github.com/ibrue/sudo-app/releases).
 
 ## How it works
 

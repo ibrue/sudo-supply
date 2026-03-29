@@ -21,7 +21,7 @@ final class OTAUpdater: ObservableObject {
     static let currentVersion = "1.0.0"
 
     private let repoOwner = "ibrue"
-    private let repoName = "sudo-supply"
+    private let repoName = "sudo-app"
     private let releasesURL: URL
 
     private var checkTimer: Timer?

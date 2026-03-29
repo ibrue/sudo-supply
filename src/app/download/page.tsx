@@ -45,7 +45,7 @@ export default function DownloadPage() {
           </div>
 
           <a
-            href="https://github.com/ibrue/sudo-supply/releases/latest"
+            href="https://github.com/ibrue/sudo-app/releases/latest"
             target="_blank"
             rel="noopener noreferrer"
             className="btn-terminal-accent block text-center mb-4"
@@ -65,8 +65,8 @@ export default function DownloadPage() {
             &gt; install from source
           </h3>
           <div className="font-mono text-sm space-y-1 text-text-muted">
-            <p><span className="text-accent">$</span> git clone https://github.com/ibrue/sudo-supply</p>
-            <p><span className="text-accent">$</span> cd sudo-supply/sudopad-app</p>
+            <p><span className="text-accent">$</span> git clone https://github.com/ibrue/sudo-app</p>
+            <p><span className="text-accent">$</span> cd sudo-app</p>
             <p><span className="text-accent">$</span> ./install.sh</p>
           </div>
         </section>
@@ -169,7 +169,7 @@ export default function DownloadPage() {
               [sudo] is open source hardware + software
             </span>
             <a
-              href="https://github.com/ibrue/sudo-supply"
+              href="https://github.com/ibrue/sudo-app"
               target="_blank"
               rel="noopener noreferrer"
               className="text-accent hover-accent"
