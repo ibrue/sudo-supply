@@ -1,7 +1,7 @@
 import Cocoa
 
 /// Central orchestrator: receives pad actions and coordinates detection → execution.
-final class SudoPadEngine: ObservableObject {
+final class SudoEngine: ObservableObject {
 
     @Published var lastAction: String = "Waiting for input..."
     @Published var lastMethod: String = ""
@@ -20,7 +20,6 @@ final class SudoPadEngine: ObservableObject {
         }
         isConnected = true
 
-        // Periodically check frontmost app
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.updateDetectedApp()
         }
@@ -33,16 +32,10 @@ final class SudoPadEngine: ObservableObject {
 
     private func updateDetectedApp() {
         if let app = appDetector.detectFrontmostApp() {
-            let label = app.isBrowser
-                ? "\(app.name) (\(app.matchedDomain ?? "web"))"
-                : app.name
-            DispatchQueue.main.async {
-                self.detectedApp = label
-            }
+            let label = app.isBrowser ? "\(app.name) (\(app.matchedDomain ?? "web"))" : app.name
+            DispatchQueue.main.async { self.detectedApp = label }
         } else {
-            DispatchQueue.main.async {
-                self.detectedApp = "No AI app detected"
-            }
+            DispatchQueue.main.async { self.detectedApp = "No AI app detected" }
         }
     }
 
@@ -52,13 +45,12 @@ final class SudoPadEngine: ObservableObject {
         guard let app = appDetector.detectFrontmostApp() else {
             lastAction = "\(action.displayName) — no AI app in focus"
             lastMethod = ""
-            print("[SudoPad] No supported AI app in focus")
             return
         }
 
-        print("[SudoPad] Target: \(app.name) (PID \(app.pid)), action: \(action.displayName)")
+        print("[sudo] Target: \(app.name) (PID \(app.pid)), action: \(action.displayName)")
 
-        // Strategy 1: AX tree search (preferred)
+        // Strategy 1: AX tree (preferred)
         let axResult = axFinder.findButton(for: action, pid: app.pid)
         if axResult.succeeded {
             let execResult = executor.execute(result: axResult)
@@ -66,9 +58,9 @@ final class SudoPadEngine: ObservableObject {
             return
         }
 
-        print("[SudoPad] AX tree miss — falling back to OCR")
+        print("[sudo] AX tree miss — falling back to OCR")
 
-        // Strategy 2: OCR fallback
+        // Strategy 2: Vision OCR fallback
         let ocrResult = ocrFinder.findButton(for: action, pid: app.pid)
         if ocrResult.succeeded {
             let execResult = executor.execute(result: ocrResult)
@@ -76,22 +68,19 @@ final class SudoPadEngine: ObservableObject {
             return
         }
 
-        // Both methods failed
         lastAction = "\(action.displayName) — button not found"
         lastMethod = "Searched AX tree + OCR"
-        print("[SudoPad] Could not find button for \(action.displayName)")
     }
 
     private func updateStatus(action: PadAction, execResult: ActionExecutor.ExecutionResult, method: String) {
         switch execResult {
         case .success(let detail):
-            lastAction = "\(action.displayName) ✓"
+            lastAction = "\(action.displayName)"
             lastMethod = "\(method) → \(detail)"
-            print("[SudoPad] Success: \(action.displayName) via \(method) → \(detail)")
+            print("[sudo] OK: \(action.displayName) via \(method) → \(detail)")
         case .failure(let reason):
             lastAction = "\(action.displayName) — failed"
             lastMethod = "\(method): \(reason)"
-            print("[SudoPad] Failed: \(reason)")
         }
     }
 }

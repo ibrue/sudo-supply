@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 export const metadata: Metadata = {
-  title: "download — sudo.supply",
+  title: "download [sudo] — sudo.supply",
+  description: "Download the [sudo] companion app for macOS. Translates macro pad button presses into AI agent actions.",
 };
 
 export default function DownloadPage() {
@@ -11,40 +13,62 @@ export default function DownloadPage() {
 
       <div className="space-y-10 animate-fade-in-delay">
         {/* Hero */}
-        <section>
-          <h1 className="font-pixel text-lg text-accent mb-4">[sudo] pad</h1>
-          <p className="text-text-muted text-sm leading-relaxed">
-            Menu bar companion app for the sudo macro pad. Translates your
-            physical button presses into approve/reject actions on Claude,
-            ChatGPT, and Grok.
+        <section className="text-center py-8">
+          <div className="flex items-center justify-center mb-6">
+            <Image
+              src="/images/logo.svg"
+              alt="[sudo]"
+              width={200}
+              height={45}
+              className="invert"
+            />
+          </div>
+          <p className="text-text-muted text-sm leading-relaxed max-w-md mx-auto">
+            The companion app for your sudo macro pad.
+            Approve, reject, and control AI agents with a physical button press.
           </p>
         </section>
 
-        {/* Download */}
-        <section className="border border-border p-6">
-          <div className="flex items-center justify-between mb-4">
+        {/* Download card */}
+        <section className="border border-accent p-8">
+          <div className="flex items-start justify-between mb-6">
             <div>
-              <h2 className="font-pixel text-xs mb-1">macOS</h2>
-              <span className="text-text-muted text-xs">
+              <h2 className="font-pixel text-sm mb-2">macOS</h2>
+              <p className="text-text-muted text-xs">
                 ventura 13.0+ &middot; apple silicon + intel
-              </span>
+              </p>
             </div>
-            <span className="text-accent text-xs">v1.0.0</span>
+            <div className="text-right">
+              <span className="text-accent text-sm font-mono">v1.0.0</span>
+              <p className="text-text-muted text-xs mt-1">latest</p>
+            </div>
           </div>
+
           <a
-            href="https://github.com/ibrue/sudo-supply/releases"
+            href="https://github.com/ibrue/sudo-supply/releases/latest"
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-terminal-accent block text-center"
+            className="btn-terminal-accent block text-center mb-4"
           >
-            [ DOWNLOAD FOR MACOS ]
+            [ DOWNLOAD .DMG ]
           </a>
-          <p className="text-text-muted text-xs mt-3">
-            Or build from source:{" "}
-            <code className="text-text">
-              git clone &amp;&amp; cd sudopad-app &amp;&amp; ./build.sh
-            </code>
-          </p>
+
+          <div className="flex items-center justify-between text-xs text-text-muted">
+            <span>auto-updates enabled</span>
+            <span>open source</span>
+          </div>
+        </section>
+
+        {/* Alt install */}
+        <section className="border border-border p-6">
+          <h3 className="text-text-muted text-xs uppercase tracking-wider mb-4">
+            &gt; install from source
+          </h3>
+          <div className="font-mono text-sm space-y-1 text-text-muted">
+            <p><span className="text-accent">$</span> git clone https://github.com/ibrue/sudo-supply</p>
+            <p><span className="text-accent">$</span> cd sudo-supply/sudopad-app</p>
+            <p><span className="text-accent">$</span> ./install.sh</p>
+          </div>
         </section>
 
         {/* How it works */}
@@ -55,34 +79,34 @@ export default function DownloadPage() {
           <div className="border border-border">
             <table className="w-full text-sm">
               <tbody>
-                <tr className="border-b border-border">
-                  <td className="px-4 py-3 text-text-muted">1. listen</td>
-                  <td className="px-4 py-3">
-                    intercepts Ctrl+Shift+F13–F16 from the macro pad
-                  </td>
-                </tr>
-                <tr className="border-b border-border">
-                  <td className="px-4 py-3 text-text-muted">2. detect</td>
-                  <td className="px-4 py-3">
-                    identifies frontmost AI app via bundle ID or browser tab
-                  </td>
-                </tr>
-                <tr className="border-b border-border">
-                  <td className="px-4 py-3 text-text-muted">3. find</td>
-                  <td className="px-4 py-3">
-                    locates approve/reject buttons via accessibility tree + OCR
-                    fallback
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-text-muted">4. act</td>
-                  <td className="px-4 py-3">
-                    presses button via AX API — no synthetic input, anti-cheat
-                    safe
-                  </td>
-                </tr>
+                {[
+                  { step: "1. listen", desc: "intercepts Ctrl+Shift+F13\u2013F16 from the macro pad" },
+                  { step: "2. detect", desc: "identifies frontmost AI app via bundle ID or browser tab" },
+                  { step: "3. find", desc: "locates buttons via accessibility tree + vision OCR fallback" },
+                  { step: "4. act", desc: "presses button via AX API \u2014 no synthetic input, anti-cheat safe" },
+                ].map((row) => (
+                  <tr key={row.step} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 text-accent whitespace-nowrap">{row.step}</td>
+                    <td className="px-4 py-3 text-text-muted">{row.desc}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
+          </div>
+        </section>
+
+        {/* Supported apps */}
+        <section>
+          <h2 className="font-pixel text-xs text-accent mb-4">
+            &gt; supported apps
+          </h2>
+          <div className="grid grid-cols-3 gap-4">
+            {["Claude", "ChatGPT", "Grok"].map((app) => (
+              <div key={app} className="border border-border p-4 text-center">
+                <p className="text-sm font-mono">{app}</p>
+                <p className="text-text-muted text-xs mt-1">native + browser</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -108,8 +132,8 @@ export default function DownloadPage() {
                   { btn: "4", key: "Ctrl+Shift+F16", action: "Stop" },
                 ].map((row) => (
                   <tr key={row.btn} className="border-b border-border last:border-0">
-                    <td className="px-4 py-2 text-accent">{row.btn}</td>
-                    <td className="px-4 py-2 font-mono">{row.key}</td>
+                    <td className="px-4 py-2 text-accent font-mono">{row.btn}</td>
+                    <td className="px-4 py-2 font-mono text-text-muted">{row.key}</td>
                     <td className="px-4 py-2">{row.action}</td>
                   </tr>
                 ))}
@@ -125,33 +149,34 @@ export default function DownloadPage() {
           </h2>
           <ul className="text-sm text-text-muted space-y-2">
             <li>
-              <span className="text-accent">&#9679;</span> macOS 13 Ventura or
-              later
+              <span className="text-accent">&#9679;</span> macOS 13 Ventura or later
             </li>
             <li>
-              <span className="text-accent">&#9679;</span> Accessibility
-              permission (System Settings → Privacy &amp; Security)
+              <span className="text-accent">&#9679;</span> Accessibility permission
+              (System Settings → Privacy &amp; Security)
             </li>
             <li>
-              <span className="text-accent">&#9679;</span> Screen Recording
-              permission (for OCR fallback)
+              <span className="text-accent">&#9679;</span> Screen Recording permission
+              (for OCR fallback)
             </li>
           </ul>
         </section>
 
-        {/* Source */}
-        <section>
-          <p className="text-text-muted text-sm">
-            SudoPad is open source.{" "}
+        {/* Footer */}
+        <section className="border-t border-border pt-6">
+          <div className="flex items-center justify-between text-sm text-text-muted">
+            <span>
+              [sudo] is open source hardware + software
+            </span>
             <a
-              href="https://github.com/ibrue/sudo-supply/tree/main/sudopad-app"
+              href="https://github.com/ibrue/sudo-supply"
               target="_blank"
               rel="noopener noreferrer"
               className="text-accent hover-accent"
             >
-              View source on GitHub →
+              GitHub →
             </a>
-          </p>
+          </div>
         </section>
       </div>
     </div>

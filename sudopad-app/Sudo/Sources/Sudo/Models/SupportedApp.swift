@@ -8,13 +8,11 @@ enum SupportedApp: String, CaseIterable {
     case chatgptWeb = "chatgpt.com"
     case grok       = "grok.com"
 
-    /// Bundle IDs for native apps
     static let nativeBundleIDs: Set<String> = [
         "com.anthropic.claudefordesktop",
         "com.openai.chat",
     ]
 
-    /// Domains for web-based AI apps (running in browser)
     static let webDomains: [String] = [
         "claude.ai",
         "chatgpt.com",
@@ -22,14 +20,13 @@ enum SupportedApp: String, CaseIterable {
         "chat.openai.com",
     ]
 
-    /// All known browser bundle IDs
     static let browserBundleIDs: Set<String> = [
         "com.apple.Safari",
         "com.google.Chrome",
         "org.mozilla.firefox",
         "com.brave.Browser",
         "com.microsoft.edgemac",
-        "company.thebrowser.Browser",  // Arc
+        "company.thebrowser.Browser",
         "com.operasoftware.Opera",
     ]
 

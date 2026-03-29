@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none">
+  <!-- App icon: [sudo] pixel logo centered on dark bg -->
+  <rect width="1024" height="1024" fill="#0a0a0a"/>
+
+  <!-- Subtle border -->
+  <rect x="2" y="2" width="1020" height="1020" fill="none" stroke="#1e1e1e" stroke-width="4"/>
+
+  <!-- [sudo] logo centered, scaled to ~600px wide -->
+  <!-- Original viewBox: 248x56, scale factor ~2.4 → each 8px block = 19.2 units -->
+  <!-- Centering: (1024 - 595) / 2 ≈ 214, (1024 - 134) / 2 ≈ 445 -->
+  <g fill="#00ff41" transform="translate(214, 445) scale(2.4)">
+    <!-- [ -->
+    <rect x="0"  y="0"  width="8"  height="56"/>
+    <rect x="8"  y="0"  width="16" height="8"/>
+    <rect x="8"  y="48" width="16" height="8"/>
+
+    <!-- S -->
+    <rect x="40" y="0"  width="32" height="8"/>
+    <rect x="40" y="8"  width="8"  height="16"/>
+    <rect x="40" y="24" width="32" height="8"/>
+    <rect x="64" y="32" width="8"  height="16"/>
+    <rect x="40" y="48" width="32" height="8"/>
+
+    <!-- U -->
+    <rect x="88" y="0"  width="8"  height="48"/>
+    <rect x="88" y="48" width="32" height="8"/>
+    <rect x="112" y="0" width="8"  height="48"/>
+
+    <!-- D -->
+    <rect x="136" y="0" width="8"  height="56"/>
+    <rect x="144" y="0" width="16" height="8"/>
+    <rect x="160" y="8" width="8"  height="40"/>
+    <rect x="144" y="48" width="16" height="8"/>
+
+    <!-- O -->
+    <rect x="184" y="0"  width="32" height="8"/>
+    <rect x="184" y="8"  width="8"  height="40"/>
+    <rect x="208" y="8"  width="8"  height="40"/>
+    <rect x="184" y="48" width="32" height="8"/>
+
+    <!-- ] -->
+    <rect x="232" y="0"  width="16" height="8"/>
+    <rect x="232" y="48" width="16" height="8"/>
+    <rect x="240" y="0"  width="8"  height="56"/>
+  </g>
+</svg>

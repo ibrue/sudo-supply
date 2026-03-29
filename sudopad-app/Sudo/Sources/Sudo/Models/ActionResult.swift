@@ -1,7 +1,6 @@
 import Foundation
 import AppKit
 
-/// Result of searching for a clickable target
 enum ActionResult {
     case found(element: AXUIElement, method: DetectionMethod)
     case foundOCR(point: CGPoint, method: DetectionMethod)

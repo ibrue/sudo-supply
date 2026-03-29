@@ -8,13 +8,21 @@ enum PadAction: String, CaseIterable {
     case action4 = "action4"
 
     /// The hotkey combo sent by the RP2040 for each button
-    /// Button 1: Ctrl+Shift+F13, Button 2: Ctrl+Shift+F14, etc.
     var keyCode: UInt16 {
         switch self {
         case .approve: return 105  // F13
         case .reject:  return 107  // F14
         case .action3: return 113  // F15
         case .action4: return 106  // F16
+        }
+    }
+
+    var fKeyNumber: Int {
+        switch self {
+        case .approve: return 13
+        case .reject:  return 14
+        case .action3: return 15
+        case .action4: return 16
         }
     }
 
@@ -27,7 +35,6 @@ enum PadAction: String, CaseIterable {
         }
     }
 
-    /// Labels to search for in the AX tree or via OCR for each action
     var searchTerms: [String] {
         switch self {
         case .approve:

@@ -2,17 +2,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "SudoPad",
+    name: "Sudo",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "SudoPad",
-            path: "Sources/SudoPad",
+            name: "Sudo",
+            path: "Sources/Sudo",
             linkerSettings: [
                 .unsafeFlags(["-framework", "Cocoa"]),
                 .unsafeFlags(["-framework", "Carbon"]),
                 .unsafeFlags(["-framework", "Vision"]),
-                .unsafeFlags(["-framework", "ScreenCaptureKit"]),
             ]
         ),
     ]
