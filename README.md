@@ -12,6 +12,10 @@ E-commerce storefront built with Next.js 14, Tailwind CSS, Clerk, and Supabase.
 
 Menu bar daemon that translates physical button presses from the sudo macro pad into AI agent actions. Built with Swift/SwiftUI.
 
+### `hardware/` — Hardware Source
+
+Open-source hardware files for the sudo macro pad: RP2040 firmware, PCB schematics, enclosure designs, and build docs.
+
 ## Getting started
 
 Clone with submodules:
