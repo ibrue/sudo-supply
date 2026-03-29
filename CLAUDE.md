@@ -4,61 +4,59 @@
 - `web/` — submodule → ibrue/sudo-supply-web (Next.js 14, Tailwind, Clerk, Supabase)
 - `app/` — submodule → ibrue/sudo-app (Swift/SwiftUI macOS menu bar app)
 - `hardware/` — hardware source files (firmware, PCB, case, docs) — placeholder for now
+- `packages/design-tokens/` — shared design language (source of truth)
 
-## Known Issues
+## Design Token System
 
-### App build error: `.onAppear` on Scene (MUST FIX FIRST)
-`SudoApp.swift` has `.onAppear` on the `Scene` which doesn't compile. Fix: move `.onAppear` onto `MenuBarView` inside the `MenuBarExtra` content closure. Replace the `body` in `Sudo/Sources/Sudo/SudoApp.swift` with:
+**Source of truth:** `packages/design-tokens/tokens.json`
 
-```swift
-    var body: some Scene {
-        MenuBarExtra {
-            MenuBarView(engine: engine, updater: updater)
-                .onAppear {
-                    engine.start()
-                    updater.startPeriodicChecks()
-                    checkAccessibilityPermission()
-                }
-        } label: {
-            Text("[sudo]")
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-        }
-        .menuBarExtraStyle(.window)
-    }
-```
+Run `node packages/design-tokens/build.js` to regenerate:
+- `css/tokens.css` — CSS variables for web
+- `swift/Theme.swift` — `SudoTheme` enum for Swift app
+- `js/tokens.js` — JS exports
 
-Also remove the `.onChange(of: engine.isConnected) { _, _ in }` line (unused).
+Run `./scripts/sync-tokens.sh` to copy generated files into submodules.
+
+**IMPORTANT:** When adding new colors or tokens:
+1. Edit `tokens.json`
+2. Run `build.js`
+3. Run `test.js` to validate
+4. Run `sync-tokens.sh` to push to submodules
+5. The Swift app uses `SudoTheme.accent`, `SudoTheme.bg`, etc. instead of hardcoded hex
+
+## Resolved Issues
+
+### App build error: `.onAppear` on Scene — FIXED
+Moved `.onAppear` from Scene to MenuBarView content closure. Removed unused `.onChange`.
+
+### App design sync — FIXED
+MenuBarView.swift now uses `SudoTheme` enum with all design tokens from the website. No more hardcoded hex values.
 
 ## Pending Work
 
-### 1. App design sync with website
-MenuBarView.swift needs design tokens synced with the website's CSS variables:
-- `--bg: #0a0a0a`, `--bg-secondary: #111111`, `--text: #f0f0f0`
-- `--text-muted: #666666`, `--accent: #00ff41`, `--accent-dim: #00ff4120`
-- `--border: #1e1e1e`, `--error: #ff3333`
-- Buttons should use bracketed terminal style: `[ ACTION ]` with border, uppercase, tracking
-- Section headers should use terminal prompt style: `> section_name`
-- Use named Color extensions (e.g. `Color.sudoAccent`) instead of inline `Color(hex:)`
-
-### 2. Hardware directory
+### 1. Hardware directory
 `hardware/` has placeholder structure. Needs actual firmware (RP2040), PCB files, case designs, and docs.
 
-### 3. Website updates
-User wants to update the website with new features (specifics TBD).
+### 2. Website updates
+Keep website in sync with app features. When new app features are added, update the download page and relevant website sections.
 
-### 4. Beta release
-User wants a beta DMG release for testing. Requires building on macOS:
+### 3. Beta release
+Build beta DMG on macOS:
 ```bash
 cd app && ./build.sh && ./create-dmg.sh
 ```
 Then create a GitHub Release tagged `v1.1.0-beta`.
 
-## GitHub Access Note
-This session can only push to `ibrue/sudo-supply`. To push to `ibrue/sudo-app` or `ibrue/sudo-supply-web`, either:
-- Push from a local Mac terminal
-- Or configure GitHub MCP access for those repos
+## Testing
 
-## Design Language (from website)
+```bash
+./scripts/test-all.sh          # Run everything
+node packages/design-tokens/test.js  # Token consistency (32 tests)
+cd web && npm test             # Web tests (20 tests: cart, products, design tokens)
+cd app/Sudo && swift test      # Swift tests (models, theme — macOS only)
+```
+
+## Design Language (from website — this is the standard)
 - Dark terminal/cyberpunk aesthetic
 - Font: Geist Mono (body), Pixelated Elegance (logo/hero)
 - No border-radius anywhere (sharp corners)
@@ -67,3 +65,16 @@ This session can only push to `ibrue/sudo-supply`. To push to `ibrue/sudo-app` o
 - Section headers: `> section_name` terminal prompt style
 - Status indicators: `●` filled / `○` empty
 - Background: #0a0a0a, Accent: #00ff41 (neon green)
+
+## Colors
+| Token | Value | CSS Variable |
+|-------|-------|-------------|
+| bg | #0a0a0a | `--bg` |
+| bg-secondary | #111111 | `--bg-secondary` |
+| text | #f0f0f0 | `--text` |
+| text-muted | #666666 | `--text-muted` |
+| accent | #00ff41 | `--accent` |
+| accent-dim | #00ff4120 | `--accent-dim` |
+| border | #1e1e1e | `--border` |
+| error | #ff3333 | `--error` |
+| surface | #333333 | `--surface` |

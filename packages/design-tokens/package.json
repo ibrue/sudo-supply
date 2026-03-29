@@ -1,0 +1,16 @@
+{
+  "name": "@sudo-supply/design-tokens",
+  "version": "1.0.0",
+  "description": "Shared design tokens for the sudo.supply ecosystem",
+  "main": "js/tokens.js",
+  "scripts": {
+    "build": "node build.js",
+    "test": "node test.js"
+  },
+  "files": [
+    "tokens.json",
+    "css/",
+    "swift/",
+    "js/"
+  ]
+}
