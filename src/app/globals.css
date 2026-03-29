@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0a0a;
+  --bg-secondary: #111111;
+  --text: #f0f0f0;
+  --text-muted: #666666;
+  --accent: #00ff41;
+  --accent-dim: #00ff4120;
+  --border: #1e1e1e;
+  --error: #ff3333;
+}
+
+* {
+  box-sizing: border-box;
+  border-radius: 0 !important;
+}
+
+body {
+  color: var(--text);
+  background: var(--bg);
+  font-family: var(--font-mono), monospace;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* Scanline overlay */
+.scanline-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  z-index: 10;
+}
+
+/* Scanline sweep entrance animation */
+@keyframes scanline-sweep {
+  0% {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    clip-path: inset(0 0 0% 0);
+    opacity: 1;
+  }
+}
+
+.animate-scanline-in {
+  animation: scanline-sweep 0.8s ease-out forwards;
+}
+
+/* Cursor blink */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Fade in */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-delay {
+  animation: fade-in 0.6s ease-out 0.3s forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fade-in 0.6s ease-out 0.6s forwards;
+  opacity: 0;
+}
+
+/* Terminal dots for cart */
+.dot-fill::after {
+  content: " ";
+  display: inline;
+  letter-spacing: 0.15em;
+}
+
+/* Hover underline accent */
+.hover-accent {
+  position: relative;
+}
+.hover-accent::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+.hover-accent:hover::after {
+  width: 100%;
+}
+
+/* Button style */
+.btn-terminal {
+  display: inline-block;
+  padding: 12px 24px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-transform: uppercase;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  background: transparent;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-terminal:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-terminal-accent {
+  display: inline-block;
+  padding: 12px 24px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  text-transform: uppercase;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.2s, color 0.2s;
+}
+.btn-terminal-accent:hover {
+  background: var(--accent);
+  color: var(--bg);
+}

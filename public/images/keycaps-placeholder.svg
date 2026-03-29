@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <rect width="400" height="400" fill="#111111"/>
+  <rect x="80" y="150" width="60" height="60" rx="6" fill="#1e1e1e" stroke="#333" stroke-width="1"/>
+  <rect x="160" y="150" width="60" height="60" rx="6" fill="#1e1e1e" stroke="#333" stroke-width="1"/>
+  <rect x="240" y="150" width="60" height="60" rx="6" fill="#1e1e1e" stroke="#333" stroke-width="1"/>
+  <rect x="160" y="230" width="60" height="60" rx="6" fill="#1e1e1e" stroke="#00ff41" stroke-width="1"/>
+  <text x="110" y="186" font-family="monospace" font-size="14" fill="#00ff41" text-anchor="middle">[Y]</text>
+  <text x="190" y="186" font-family="monospace" font-size="14" fill="#ff3333" text-anchor="middle">[N]</text>
+  <text x="270" y="186" font-family="monospace" font-size="14" fill="#666" text-anchor="middle">[→]</text>
+  <text x="190" y="266" font-family="monospace" font-size="14" fill="#666" text-anchor="middle">[×]</text>
+</svg>
