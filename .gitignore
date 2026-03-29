@@ -31,6 +31,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# sudo app build artifacts
+sudopad-app/dist/
+sudopad-app/Sudo/.build/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

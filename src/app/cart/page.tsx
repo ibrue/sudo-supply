@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
+import { createCheckout } from "@/lib/shopify";
 
 function dotFill(label: string, amount: string, width: number = 50) {
   const contentLen = label.length + amount.length;
@@ -11,6 +13,34 @@ function dotFill(label: string, amount: string, width: number = 50) {
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, totalPrice } = useCart();
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCheckout() {
+    setCheckingOut(true);
+    setError(null);
+
+    try {
+      // Map cart items to Shopify line items
+      // For now, use the product slug as a placeholder variant ID.
+      // In production, these would be real Shopify variant GIDs.
+      const lineItems = items.map((item) => ({
+        variantId: item.product.shopifyVariantId || item.product.slug,
+        quantity: item.quantity,
+      }));
+
+      const checkout = await createCheckout(lineItems);
+
+      // Redirect to Shopify hosted checkout
+      window.location.href = checkout.webUrl;
+    } catch (err) {
+      console.error("Checkout error:", err);
+      setError(
+        "Checkout is not configured yet. Connect your Shopify store to enable purchases."
+      );
+      setCheckingOut(false);
+    }
+  }
 
   return (
     <div className="pt-24 pb-16 px-6 max-w-3xl mx-auto">
@@ -63,7 +93,7 @@ export default function CartPage() {
                       onClick={() => removeItem(item.product.slug)}
                       className="text-text-muted hover:text-error text-xs"
                     >
-                      [×]
+                      [x]
                     </button>
                   </div>
                 </div>
@@ -76,9 +106,23 @@ export default function CartPage() {
               {dotFill("total:", `$${totalPrice.toFixed(2)}`)}
             </div>
 
-            <button className="btn-terminal-accent w-full text-center">
-              [ CHECKOUT ]
+            {error && (
+              <p className="text-error text-xs mb-4 border border-error p-3">
+                {error}
+              </p>
+            )}
+
+            <button
+              onClick={handleCheckout}
+              disabled={checkingOut}
+              className="btn-terminal-accent w-full text-center disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {checkingOut ? "[ REDIRECTING... ]" : "[ CHECKOUT ]"}
             </button>
+
+            <p className="text-text-muted text-xs mt-3 text-center">
+              secure checkout powered by Shopify
+            </p>
           </>
         )}
       </div>

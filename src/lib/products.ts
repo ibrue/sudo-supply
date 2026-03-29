@@ -7,6 +7,7 @@ export interface Product {
   inStock: boolean;
   image: string;
   specs: Record<string, string>;
+  shopifyVariantId?: string; // Shopify variant GID — set this after connecting your store
 }
 
 export const products: Product[] = [
