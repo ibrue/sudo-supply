@@ -59,33 +59,33 @@ for pin in PINS:
 
 # --- LED feedback ----------------------------------------------------------
 #
-# GP24 only — GP25 is the Pico's onboard status LED and CircuitPython
-# uses it for boot / error patterns. Claiming GP25 has crashed previous
-# firmware revisions; not worth the visual.
-#
-# Wrapped in try/except so a board without LED2 wired up (or one that
-# can't claim the pin for any reason) still runs the rest of the
-# firmware. Flash duration is short — just a "tap" feedback on press.
+# Both under-glow LEDs flash on every press. Each pin is claimed
+# independently inside its own try/except — if GP25 (the Pico's onboard
+# status LED) is already claimed by CircuitPython for boot / error
+# patterns, the claim raises and we just continue with GP24 only. We
+# never crash the firmware over an LED.
 
-LED_PIN = board.GP24
+LED_PINS = (board.GP24, board.GP25)
 LED_FLASH_MS = 120
 _led_off_at = 0
-
-try:
-    _led = digitalio.DigitalInOut(LED_PIN)
-    _led.direction = digitalio.Direction.OUTPUT
-    _led.value = False
-    _led_ok = True
-except Exception:  # noqa: BLE001
-    _led_ok = False
+_leds = []
+for _pin in LED_PINS:
+    try:
+        _l = digitalio.DigitalInOut(_pin)
+        _l.direction = digitalio.Direction.OUTPUT
+        _l.value = False
+        _leds.append(_l)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def flash_led():
     global _led_off_at
-    if not _led_ok:
+    if not _leds:
         return
     try:
-        _led.value = True
+        for _l in _leds:
+            _l.value = True
         _led_off_at = supervisor.ticks_ms() + LED_FLASH_MS
     except Exception:  # noqa: BLE001
         pass
@@ -93,11 +93,12 @@ def flash_led():
 
 def update_led():
     global _led_off_at
-    if not _led_ok or _led_off_at == 0:
+    if not _leds or _led_off_at == 0:
         return
     try:
         if ticks_diff(supervisor.ticks_ms(), _led_off_at) >= 0:
-            _led.value = False
+            for _l in _leds:
+                _l.value = False
             _led_off_at = 0
     except Exception:  # noqa: BLE001
         _led_off_at = 0
