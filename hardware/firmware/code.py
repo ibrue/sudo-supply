@@ -25,6 +25,21 @@ import usb_cdc
 import usb_hid
 
 
+# CircuitPython's supervisor module exposes ticks_ms() but NOT ticks_diff()
+# (that's a MicroPython-ism). The supervisor counter wraps at 2**29 ms,
+# so naive subtraction breaks every ~6 days. Implement the standard
+# wrap-safe diff inline so we don't depend on it being there.
+_TICKS_PERIOD = 1 << 29
+_TICKS_HALFPERIOD = _TICKS_PERIOD // 2
+
+
+def ticks_diff(t1, t2):
+    diff = (t1 - t2) & (_TICKS_PERIOD - 1)
+    if diff >= _TICKS_HALFPERIOD:
+        diff -= _TICKS_PERIOD
+    return diff
+
+
 def log(msg):
     """Write a line to the console (REPL) channel.
 
@@ -214,7 +229,7 @@ while True:
         now = supervisor.ticks_ms()
 
         for i in range(4):
-            if supervisor.ticks_diff(now, debounce_until[i]) < 0:
+            if ticks_diff(now, debounce_until[i]) < 0:
                 continue
             state = buttons[i].value  # True = released (pull-up)
             if state != last_state[i]:
