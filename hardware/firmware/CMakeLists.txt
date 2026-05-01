@@ -20,6 +20,7 @@ target_include_directories(sudo_firmware PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(sudo_firmware
     pico_stdlib
     pico_unique_id
+    pico_bootrom
     hardware_flash
     tinyusb_device
     tinyusb_board

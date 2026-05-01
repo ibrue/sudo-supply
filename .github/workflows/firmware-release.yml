@@ -1,0 +1,90 @@
+name: Build firmware
+
+# Auto-builds the RP2040 firmware UF2 from sources in hardware/firmware/ and
+# publishes it as a rolling release tagged `firmware-latest`. The sudo-app
+# downloads from this release on first flash, so users never need to install
+# the Pico SDK locally.
+
+on:
+  push:
+    paths:
+      - "hardware/firmware/**"
+      - ".github/workflows/firmware-release.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-newlib \
+            build-essential
+
+      - name: Cache pico-sdk
+        id: cache-sdk
+        uses: actions/cache@v4
+        with:
+          path: pico-sdk
+          key: pico-sdk-1.5.1
+
+      - name: Checkout pico-sdk
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth=1 --branch 1.5.1 https://github.com/raspberrypi/pico-sdk
+          cd pico-sdk
+          git submodule update --init --depth=1
+
+      - name: Build firmware
+        run: |
+          export PICO_SDK_PATH="$GITHUB_WORKSPACE/pico-sdk"
+          cd hardware/firmware
+          cp "$PICO_SDK_PATH/external/pico_sdk_import.cmake" .
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target sudo_firmware -j
+
+      - name: Verify UF2 produced
+        run: |
+          test -f hardware/firmware/build/sudo_firmware.uf2
+          ls -la hardware/firmware/build/sudo_firmware.uf2
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sudo-firmware-uf2
+          path: hardware/firmware/build/sudo_firmware.uf2
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: sudo-firmware-uf2
+
+      - name: Publish rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: firmware-latest
+          name: Firmware (latest from main)
+          body: |
+            Auto-built RP2040 firmware UF2.
+
+            Built from `${{ github.sha }}` on `${{ github.ref_name }}`.
+
+            The sudo-app pulls `sudo-firmware.uf2` from this release when the
+            user clicks `[ flash device ]` and no firmware is bundled.
+          files: sudo_firmware.uf2
+          prerelease: true
+          make_latest: "false"
