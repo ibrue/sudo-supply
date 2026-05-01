@@ -78,6 +78,7 @@ under-glow accordingly. See `enum led_state_t` in `main.c` and
 | `0x04` | failure (double-flash, ~800 ms) |
 | `0x05` | waiting for input (full-on) |
 | `0x06` | button pressed (~120 ms flash) |
+| `0x07` | reboot into BOOTSEL — used by the app to re-flash the device without the user pressing the BOOTSEL switch (calls `reset_usb_boot()`, doesn't return) |
 
 The `button pressed` state is also asserted internally by the firmware on
 every physical press, so under-glow feedback is instantaneous even when the

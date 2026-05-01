@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "pico/stdlib.h"
+#include "pico/bootrom.h"
 #include "hardware/gpio.h"
 #include "hardware/flash.h"
 
@@ -82,6 +83,10 @@ typedef enum {
     LED_WAITING_FOR_INPUT = 0x05,
     LED_BUTTON_PRESSED   = 0x06,
 } led_state_t;
+
+// CDC command bytes that aren't LED states. The app sends these to drive
+// non-visual behaviour (currently: jump to BOOTSEL for re-flashing).
+#define CDC_CMD_REBOOT_BOOTSEL  0x07
 
 static led_state_t led_state = LED_IDLE;
 static uint32_t led_state_set_at_ms = 0;
@@ -256,6 +261,16 @@ static void cdc_tick(void) {
         case LED_WAITING_FOR_INPUT:
         case LED_BUTTON_PRESSED:
             set_led_state((led_state_t)buf[i]);
+            break;
+        case CDC_CMD_REBOOT_BOOTSEL:
+            // Flash both LEDs full-on as a "going down for flashing"
+            // indicator, then jump to the ROM bootloader. This call doesn't
+            // return — the device disconnects from USB and re-enumerates
+            // as RPI-RP2 mass storage. After this, the user never has to
+            // physically press the BOOTSEL button to reflash.
+            leds_set(0xFF, 0xFF);
+            sleep_ms(50);
+            reset_usb_boot(0, 0);
             break;
         default:
             break;  // unknown — ignore
