@@ -1,35 +1,57 @@
 # sudo macropad firmware — CircuitPython
 #
 # Lives at /code.py on the CIRCUITPY mass-storage volume. Reads /config.json
-# for per-button mappings; falls back to F13/F17/F18/F16 + ctrl+shift if
-# the file is missing or malformed.
+# for per-button mappings.
 #
-# Hardware (matches sudo-supply.kicad_sch):
+# Hardware:
 #   GP0–GP3   buttons 1–4 (active-low, internal pull-up)
 #
-# Uses only built-in CircuitPython modules — no adafruit_hid, nothing to
-# install in /lib/.
-#
-# The companion app updates behaviour by writing /config.json directly to the
-# CIRCUITPY volume — CircuitPython auto-reloads on every save, so changes go
-# live in <1 s without BOOTSEL or UF2 dances.
-#
-# Why F13/F17/F18/F16 instead of F13–F16 in default mode:
-#   macOS treats raw F14 / F15 as display-brightness keys on Apple-style
-#   keyboards even when modifiers are present. F17/F18 (0x6C / 0x6D) are
-#   unclaimed by the system, so the keystrokes survive to HotkeyListener.
+# Communication channels:
+#   usb_cdc.data    — primary path. Pad writes "PRESS <1-4>\n" lines on
+#                     each button press. Host app reads + dispatches per
+#                     app. Configured by boot.py; None until first
+#                     hardware reset after boot.py is in place.
+#   usb_hid         — secondary. In keycombo / mediakey modes the pad
+#                     ALSO types real keystrokes so it works standalone
+#                     without the app running. In passthrough mode (the
+#                     "dynamic" app mode) we skip HID entirely — the app
+#                     receives the press over serial and decides what to
+#                     type itself. This avoids the F-key/brightness
+#                     swallowing problem on macOS.
 
 import board
 import digitalio
 import json
 import supervisor
 import time
+import usb_cdc
 import usb_hid
 
 
-# ----------------------------------------------------------------------------
-# HID device discovery
-# ----------------------------------------------------------------------------
+# --- Self-recovery ---------------------------------------------------------
+#
+# Auto-reload only re-runs code.py, not boot.py. So the very first time
+# the app writes boot.py to a fresh CIRCUITPY volume, usb_cdc.data is
+# still None — boot.py hasn't actually run yet. Detect that and trigger
+# a hardware reset so boot.py executes and the data channel comes up.
+
+if usb_cdc.data is None:
+    try:
+        with open("/boot.py", "r") as _f:
+            _f.read(1)  # if this works, boot.py exists
+        # boot.py is on disk but didn't activate the data channel —
+        # that means we're running on a stale boot. Reset hard.
+        import microcontroller
+        microcontroller.reset()  # never returns
+    except OSError:
+        # No boot.py at all. Run in HID-only mode (legacy fallback).
+        pass
+
+
+serial = usb_cdc.data  # may still be None on legacy installs
+
+
+# --- HID device discovery --------------------------------------------------
 
 keyboard_device = None
 consumer_device = None
@@ -40,12 +62,7 @@ for _device in usb_hid.devices:
         consumer_device = _device
 
 
-# ----------------------------------------------------------------------------
-# Pin map — buttons only. LEDs are intentionally untouched: GP25 on the Pico
-# is the onboard status LED and CircuitPython uses it to flash error codes;
-# GP24 has caused pin-allocation crashes on some boards. We can re-introduce
-# LED feedback later once buttons + HID are confirmed working.
-# ----------------------------------------------------------------------------
+# --- Pin map ---------------------------------------------------------------
 
 BUTTON_PINS = (board.GP0, board.GP1, board.GP2, board.GP3)
 
@@ -60,15 +77,17 @@ def _make_input(pin):
 buttons = [_make_input(pin) for pin in BUTTON_PINS]
 
 
-# ----------------------------------------------------------------------------
-# Config
-# ----------------------------------------------------------------------------
+# --- Config ----------------------------------------------------------------
+#
+# Default = passthrough on every button. The app handles dispatch.
+# When the app writes a real config.json (after the first flash), each
+# button's mode is overridden per the user's chosen app mode.
 
 DEFAULT_BUTTONS = [
-    {"mode": "keycombo", "keycode": 0x68, "modifiers": 0x03, "name": "button 1"},  # F13
-    {"mode": "keycombo", "keycode": 0x6D, "modifiers": 0x03, "name": "button 2"},  # F18
-    {"mode": "keycombo", "keycode": 0x6C, "modifiers": 0x03, "name": "button 3"},  # F17
-    {"mode": "keycombo", "keycode": 0x6B, "modifiers": 0x03, "name": "button 4"},  # F16
+    {"mode": "passthrough", "keycode": 0, "modifiers": 0, "name": "button 1"},
+    {"mode": "passthrough", "keycode": 0, "modifiers": 0, "name": "button 2"},
+    {"mode": "passthrough", "keycode": 0, "modifiers": 0, "name": "button 3"},
+    {"mode": "passthrough", "keycode": 0, "modifiers": 0, "name": "button 4"},
 ]
 
 
@@ -87,9 +106,7 @@ def load_config():
 button_configs = load_config()
 
 
-# ----------------------------------------------------------------------------
-# HID send helpers
-# ----------------------------------------------------------------------------
+# --- Send helpers ----------------------------------------------------------
 
 def _send_keyboard(modifier, keycode):
     if keyboard_device is None:
@@ -127,6 +144,16 @@ def _send_consumer(usage):
         pass
 
 
+def _send_press(idx):
+    """Notify host that physical button (idx + 1) was just pressed."""
+    if serial is None:
+        return
+    try:
+        serial.write(("PRESS %d\n" % (idx + 1)).encode("utf-8"))
+    except Exception:  # noqa: BLE001
+        pass
+
+
 _CONSUMER_CODES = {
     16: 0xCD,  # play/pause
     17: 0xB5,  # next track
@@ -138,23 +165,26 @@ _CONSUMER_CODES = {
 
 def dispatch(idx):
     cfg = button_configs[idx]
-    mode = cfg.get("mode", "keycombo")
-    keycode = cfg.get("keycode", 0)
+    mode = cfg.get("mode", "passthrough")
 
-    if mode == "keycombo" or mode == "passthrough":
+    if mode == "passthrough":
+        # App-driven dispatch over serial. NO HID — that's the whole
+        # point of this transport.
+        _send_press(idx)
+    elif mode == "keycombo":
+        keycode = cfg.get("keycode", 0)
         modifiers = cfg.get("modifiers", 0)
         _send_keyboard(modifiers, keycode)
         time.sleep(0.015)
         _release_keyboard()
     elif mode == "mediakey":
+        keycode = cfg.get("keycode", 0)
         usage = _CONSUMER_CODES.get(keycode, 0)
         if usage:
             _send_consumer(usage)
 
 
-# ----------------------------------------------------------------------------
-# Main loop
-# ----------------------------------------------------------------------------
+# --- Main loop -------------------------------------------------------------
 
 DEBOUNCE_MS = 20
 
