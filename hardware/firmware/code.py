@@ -2,16 +2,15 @@
 #
 # Lives at /code.py on the CIRCUITPY mass-storage volume. Reads /config.json
 # for per-button mappings; falls back to F13/F17/F18/F16 + ctrl+shift if
-# missing.
+# the file is missing or malformed.
 #
 # Hardware (matches sudo-supply.kicad_sch):
 #   GP0–GP3   buttons 1–4 (active-low, internal pull-up)
 #   GP24      LED2 (under-glow)
-#   GP25      LED1 (under-glow)
+#   GP25      LED1 (under-glow / Pico onboard LED)
 #
-# Uses only built-in CircuitPython modules (`usb_hid`, `digitalio`,
-# `pwmio`, `supervisor`) — sends raw HID reports rather than depending
-# on the adafruit_hid library, so there's nothing to install in /lib/.
+# Uses only built-in CircuitPython modules — no adafruit_hid, nothing to
+# install in /lib/.
 #
 # The companion app updates behaviour by writing /config.json directly to the
 # CIRCUITPY volume — CircuitPython auto-reloads on every save, so changes go
@@ -19,13 +18,12 @@
 #
 # Why F13/F17/F18/F16 instead of F13–F16 in default mode:
 #   macOS treats raw F14 / F15 as display-brightness keys on Apple-style
-#   keyboards even when modifiers are present. We use F17/F18 for the two
-#   middle buttons because those F-keys aren't claimed by the system.
+#   keyboards even when modifiers are present. F17/F18 (0x6C / 0x6D) are
+#   unclaimed by the system, so the keystrokes survive to HotkeyListener.
 
 import board
 import digitalio
 import json
-import pwmio
 import supervisor
 import time
 import usb_hid
@@ -35,16 +33,11 @@ import usb_hid
 # HID device discovery
 # ----------------------------------------------------------------------------
 
-# CircuitPython exposes usb_hid.devices as a tuple of HID devices the host
-# enumerated. The default profile includes a keyboard and a consumer-control
-# device — we find them by their HID usage page + usage code.
 keyboard_device = None
 consumer_device = None
 for _device in usb_hid.devices:
-    # Generic Desktop / Keyboard
     if _device.usage_page == 0x01 and _device.usage == 0x06:
         keyboard_device = _device
-    # Consumer / Consumer Control
     elif _device.usage_page == 0x0C and _device.usage == 0x01:
         consumer_device = _device
 
@@ -65,19 +58,30 @@ def _make_input(pin):
     return p
 
 
+def _make_output(pin):
+    p = digitalio.DigitalInOut(pin)
+    p.direction = digitalio.Direction.OUTPUT
+    p.value = False
+    return p
+
+
 buttons = [_make_input(pin) for pin in BUTTON_PINS]
 
-# PWM-driven LEDs for smooth fade-in/fade-out animations.
-led1 = pwmio.PWMOut(LED_PIN_1, frequency=1000, duty_cycle=0)
-led2 = pwmio.PWMOut(LED_PIN_2, frequency=1000, duty_cycle=0)
+# Plain digital LEDs — no PWM, no animation, just on/off. Wrapped in
+# try/except so a pin-allocation hiccup (e.g. CP claiming GP25 for its
+# status indicator) can't kill the whole firmware.
+try:
+    led1 = _make_output(LED_PIN_1)
+    led2 = _make_output(LED_PIN_2)
+    _leds_ok = True
+except Exception:  # noqa: BLE001
+    _leds_ok = False
 
 
 # ----------------------------------------------------------------------------
 # Config
 # ----------------------------------------------------------------------------
 
-# Default = passthrough mode: F13/F17/F18/F16 + ctrl+shift, matching the
-# app's default hotkey bindings.
 DEFAULT_BUTTONS = [
     {"mode": "keycombo", "keycode": 0x68, "modifiers": 0x03, "name": "button 1"},  # F13
     {"mode": "keycombo", "keycode": 0x6D, "modifiers": 0x03, "name": "button 2"},  # F18
@@ -105,7 +109,6 @@ button_configs = load_config()
 # HID send helpers
 # ----------------------------------------------------------------------------
 
-# Standard 8-byte boot keyboard report: [modifier, reserved, k1, k2, k3, k4, k5, k6].
 def _send_keyboard(modifier, keycode):
     if keyboard_device is None:
         return
@@ -115,7 +118,7 @@ def _send_keyboard(modifier, keycode):
         if keycode:
             report[2] = keycode & 0xFF
         keyboard_device.send_report(report)
-    except Exception:  # noqa: BLE001 — never let a USB hiccup kill the loop
+    except Exception:  # noqa: BLE001
         pass
 
 
@@ -128,7 +131,6 @@ def _release_keyboard():
         pass
 
 
-# 2-byte consumer-control report with the 16-bit usage code.
 def _send_consumer(usage):
     if consumer_device is None:
         return
@@ -143,8 +145,6 @@ def _send_consumer(usage):
         pass
 
 
-# macOS NX_KEYTYPE values (passed through from the app/JSON) → consumer-
-# control HID usage codes.
 _CONSUMER_CODES = {
     16: 0xCD,  # play/pause
     17: 0xB5,  # next track
@@ -171,61 +171,36 @@ def dispatch(idx):
 
 
 # ----------------------------------------------------------------------------
-# LED animation — non-blocking state machine
+# LED feedback — non-blocking. Flash both LEDs for LED_FLASH_MS on press.
 # ----------------------------------------------------------------------------
-#
-# On a button press we trigger a fade-in/fade-out animation on both LEDs.
-# The animation is driven by ticks_diff each iteration of the main loop —
-# never blocks, so button polling stays responsive throughout.
-#
-# Curve:
-#                         peak (65535)
-#                          /\
-#                         /  \
-#                        /    \
-#                       /      \____
-#                      /            \____
-#       0  ___________/                  \____  0
-#          press   80ms             280ms
 
-ANIM_RAMP_UP_MS = 80
-ANIM_RAMP_DOWN_MS = 200
-ANIM_TOTAL_MS = ANIM_RAMP_UP_MS + ANIM_RAMP_DOWN_MS
-
-_anim_active = False
-_anim_started_at = 0
+LED_FLASH_MS = 120
+_led_off_at = 0
 
 
-def trigger_animation():
-    global _anim_active, _anim_started_at
-    _anim_active = True
-    _anim_started_at = supervisor.ticks_ms()
-
-
-def update_animation():
-    global _anim_active
-    if not _anim_active:
+def flash_leds():
+    global _led_off_at
+    if not _leds_ok:
         return
-    elapsed = supervisor.ticks_diff(supervisor.ticks_ms(), _anim_started_at)
-    if elapsed < 0:
-        elapsed = 0
-    if elapsed < ANIM_RAMP_UP_MS:
-        # Fade in
-        level = int((elapsed / ANIM_RAMP_UP_MS) * 65535)
-    elif elapsed < ANIM_TOTAL_MS:
-        # Fade out
-        progress = (elapsed - ANIM_RAMP_UP_MS) / ANIM_RAMP_DOWN_MS
-        level = int((1.0 - progress) * 65535)
-    else:
-        level = 0
-        _anim_active = False
-    led1.duty_cycle = level
-    led2.duty_cycle = level
+    try:
+        led1.value = True
+        led2.value = True
+        _led_off_at = supervisor.ticks_ms() + LED_FLASH_MS
+    except Exception:  # noqa: BLE001
+        pass
 
 
-def leds_off():
-    led1.duty_cycle = 0
-    led2.duty_cycle = 0
+def update_leds():
+    global _led_off_at
+    if not _leds_ok or _led_off_at == 0:
+        return
+    try:
+        if supervisor.ticks_diff(supervisor.ticks_ms(), _led_off_at) >= 0:
+            led1.value = False
+            led2.value = False
+            _led_off_at = 0
+    except Exception:  # noqa: BLE001
+        _led_off_at = 0
 
 
 # ----------------------------------------------------------------------------
@@ -237,20 +212,13 @@ DEBOUNCE_MS = 20
 last_state = [True] * 4
 debounce_until = [0] * 4
 
-leds_off()
-
-# Top-level try/except so a transient USB blip during sleep / suspend can't
-# silently kill the firmware. CircuitPython would otherwise drop to the REPL
-# and the device would stop responding to button presses until reset.
 while True:
     try:
         now = supervisor.ticks_ms()
 
-        # Always tick the LED animation, regardless of input state.
-        update_animation()
+        update_leds()
 
         for i in range(4):
-            # ticks wraps; supervisor.ticks_diff handles the wrap correctly.
             if supervisor.ticks_diff(now, debounce_until[i]) < 0:
                 continue
             state = buttons[i].value  # True = released
@@ -258,14 +226,11 @@ while True:
                 last_state[i] = state
                 debounce_until[i] = now + DEBOUNCE_MS
                 if not state:
-                    # Pressed: kick off LED animation and dispatch HID.
-                    trigger_animation()
+                    flash_leds()
                     dispatch(i)
 
         time.sleep(0.005)
     except Exception:  # noqa: BLE001
-        # Anything went sideways — give the bus a beat and start the loop
-        # over. Don't print/log: we don't have a console attached.
         try:
             time.sleep(0.1)
         except Exception:  # noqa: BLE001
