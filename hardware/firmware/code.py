@@ -8,6 +8,10 @@
 #   GP24      LED2 (under-glow)
 #   GP25      LED1 (under-glow)
 #
+# Uses only built-in CircuitPython modules (`usb_hid`, `digitalio`,
+# `supervisor`) — sends raw HID reports rather than depending on the
+# adafruit_hid library, so there's nothing to install in /lib/.
+#
 # The companion app updates behaviour by writing /config.json directly to the
 # CIRCUITPY volume — CircuitPython auto-reloads on every save, so changes go
 # live in <1 s without BOOTSEL or UF2 dances.
@@ -19,8 +23,23 @@ import supervisor
 import time
 import usb_hid
 
-from adafruit_hid.keyboard import Keyboard
-from adafruit_hid.consumer_control import ConsumerControl
+
+# ----------------------------------------------------------------------------
+# HID device discovery
+# ----------------------------------------------------------------------------
+
+# CircuitPython exposes usb_hid.devices as a tuple of HID devices the host
+# enumerated. The default profile includes a keyboard and a consumer-control
+# device — we find them by their HID usage page + usage code.
+keyboard_device = None
+consumer_device = None
+for _device in usb_hid.devices:
+    # Generic Desktop / Keyboard
+    if _device.usage_page == 0x01 and _device.usage == 0x06:
+        keyboard_device = _device
+    # Consumer / Consumer Control
+    elif _device.usage_page == 0x0C and _device.usage == 0x01:
+        consumer_device = _device
 
 
 # ----------------------------------------------------------------------------
@@ -80,25 +99,45 @@ button_configs = load_config()
 
 
 # ----------------------------------------------------------------------------
-# HID
+# HID send helpers
 # ----------------------------------------------------------------------------
 
-kbd = Keyboard(usb_hid.devices)
-cc = ConsumerControl(usb_hid.devices)
+# Standard 8-byte boot keyboard report: [modifier, reserved, k1, k2, k3, k4, k5, k6].
+def _send_keyboard(modifier, keycode):
+    if keyboard_device is None:
+        return
+    report = bytearray(8)
+    report[0] = modifier & 0xFF
+    if keycode:
+        report[2] = keycode & 0xFF
+    try:
+        keyboard_device.send_report(report)
+    except OSError:
+        pass
 
 
-# Modifier bitmask → list of HID modifier keycodes.
-def _modifier_keycodes(mask):
-    out = []
-    if mask & 0x01:
-        out.append(0xE0)  # left ctrl
-    if mask & 0x02:
-        out.append(0xE1)  # left shift
-    if mask & 0x04:
-        out.append(0xE2)  # left alt
-    if mask & 0x08:
-        out.append(0xE3)  # left gui (cmd)
-    return out
+def _release_keyboard():
+    if keyboard_device is None:
+        return
+    try:
+        keyboard_device.send_report(bytearray(8))
+    except OSError:
+        pass
+
+
+# 2-byte consumer-control report with the 16-bit usage code.
+def _send_consumer(usage):
+    if consumer_device is None:
+        return
+    pressed = bytearray(2)
+    pressed[0] = usage & 0xFF
+    pressed[1] = (usage >> 8) & 0xFF
+    try:
+        consumer_device.send_report(pressed)
+        time.sleep(0.01)
+        consumer_device.send_report(bytearray(2))
+    except OSError:
+        pass
 
 
 # macOS NX_KEYTYPE values (passed through from the app/JSON) → consumer-
@@ -119,17 +158,13 @@ def dispatch(idx):
 
     if mode == "keycombo" or mode == "passthrough":
         modifiers = cfg.get("modifiers", 0)
-        all_codes = _modifier_keycodes(modifiers)
-        if keycode:
-            all_codes.append(keycode)
-        if all_codes:
-            kbd.press(*all_codes)
-            time.sleep(0.015)
-            kbd.release_all()
+        _send_keyboard(modifiers, keycode)
+        time.sleep(0.015)
+        _release_keyboard()
     elif mode == "mediakey":
         usage = _CONSUMER_CODES.get(keycode, 0)
         if usage:
-            cc.send(usage)
+            _send_consumer(usage)
 
 
 # ----------------------------------------------------------------------------
@@ -139,12 +174,6 @@ def dispatch(idx):
 def leds_set(on):
     for led in leds:
         led.value = on
-
-
-def flash_leds(duration=0.08):
-    leds_set(True)
-    time.sleep(duration)
-    leds_set(False)
 
 
 # ----------------------------------------------------------------------------
@@ -162,7 +191,8 @@ while True:
     now = supervisor.ticks_ms()
 
     for i in range(4):
-        if now - debounce_until[i] < 0:  # ticks_ms wraps; treat negative diff as "still debouncing"
+        # ticks_ms wraps; treat any not-yet-elapsed state as "still debouncing"
+        if now - debounce_until[i] < 0:
             continue
         state = buttons[i].value  # True = released (pull-up + active-low switch)
         if state != last_state[i]:
