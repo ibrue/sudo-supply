@@ -43,7 +43,11 @@ for d in usb_hid.devices:
 
 # --- Pins ------------------------------------------------------------------
 
-PINS = (board.GP0, board.GP1, board.GP2, board.GP3)
+# Pins listed in physical order, bottom → top, so buttons[0] is the
+# bottom button (button 1 in the app), buttons[3] is the top (button 4).
+# The hardware happens to wire GP3 to the bottom switch; if we used GP0..GP3
+# in numeric order the indexing would be flipped from what the app shows.
+PINS = (board.GP3, board.GP2, board.GP1, board.GP0)
 
 buttons = []
 for pin in PINS:
