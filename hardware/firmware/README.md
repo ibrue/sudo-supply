@@ -1,18 +1,27 @@
-# sudo macropad firmware
+# sudo macropad firmware — CircuitPython
 
-RP2040 firmware for the sudo macropad. Polls 4 buttons, sends USB HID
-keystrokes, drives the under-glow LEDs, and talks to the companion app over
-USB CDC.
+The pad runs [CircuitPython](https://circuitpython.org/) on the RP2040.
+The whole firmware is a single Python file: [`code.py`](./code.py).
 
-## What's here
+## Why CircuitPython
 
-| File | Purpose |
-|---|---|
-| `main.c` | main loop: button polling, HID dispatch, LED state machine, CDC reader |
-| `sudo_config.h` | binary layout of the on-flash user config — must match `SudoConfigUF2.swift` in the app |
-| `usb_descriptors.c` | composite USB device: HID keyboard + consumer-control + CDC |
-| `tusb_config.h` | TinyUSB feature flags for this build |
-| `CMakeLists.txt` | Pico SDK build config |
+We previously wrote our own C firmware against the Pico SDK. That worked
+on paper but in practice the toolchain — Pico SDK install, ARM cross
+compiler, CI builds, UF2 byte-stitching, flash sectors — was way more
+machinery than a 4-button macropad warrants. CircuitPython gives us a
+battle-tested HID stack from Adafruit, plain-text behaviour you can edit
+on the device's mass-storage volume, and instant auto-reload on save.
+
+## How it works
+
+1. The companion app flashes the official CircuitPython UF2 to `RPI-RP2`
+   (BOOTSEL mass storage). One time only, when the chip is blank.
+2. After reboot the device enumerates as `CIRCUITPY` mass storage.
+3. The app copies `code.py` and `config.json` to `CIRCUITPY` directly.
+   CircuitPython watches the filesystem, sees the change, and reloads
+   `code.py` within ~250 ms.
+4. Subsequent config changes are just `config.json` writes — no UF2,
+   no BOOTSEL, no reboot.
 
 ## Pin map
 
@@ -20,77 +29,45 @@ Matches `pcb/sudo-supply.kicad_sch`:
 
 | Net | GPIO | Direction |
 |---|---|---|
-| BTN1 (bottom, approve) | 0 | input, pull-up |
-| BTN2 (action3) | 1 | input, pull-up |
-| BTN3 (reject) | 2 | input, pull-up |
-| BTN4 (top, action4) | 3 | input, pull-up |
-| LED1 | 25 | output |
-| LED2 | 24 | output |
+| BTN1 (bottom, approve) | 0  | input, pull-up |
+| BTN2 (action3)         | 1  | input, pull-up |
+| BTN3 (reject)          | 2  | input, pull-up |
+| BTN4 (top, action4)    | 3  | input, pull-up |
+| LED1                   | 25 | output |
+| LED2                   | 24 | output |
 
-## How config flashing works
+## Config schema
 
-The companion app generates a 256-byte config blob, wraps it in a single
-512-byte UF2 block targeting flash address `0x101FF000` (last 4 KB sector of
-the 2 MB W25Q16JV), and copies it to the `RPI-RP2` mass-storage volume that
-appears when BOOTSEL is held during USB enumeration. The bootloader writes
-the block to flash without touching the rest. On the next boot the firmware
-checks the magic at that address and applies the per-button mappings.
+`config.json`, written to the root of `CIRCUITPY`:
 
-Because the config sector lives at the very end of flash, the firmware itself
-can grow up to ~2 MB - 4 KB without colliding.
-
-## Building
-
-```bash
-# one-time SDK setup
-git clone https://github.com/raspberrypi/pico-sdk
-cd pico-sdk && git submodule update --init && cd ..
-export PICO_SDK_PATH="$(pwd)/pico-sdk"
-cp pico-sdk/external/pico_sdk_import.cmake .
-
-# build
-mkdir build && cd build
-cmake ..
-make -j
+```json
+{
+  "version": 1,
+  "mode": "dynamic" | "simple" | "custom",
+  "buttons": [
+    {"mode": "keycombo"|"mediakey"|"passthrough",
+     "keycode": <hid usage>, "modifiers": <hid mod mask>,
+     "name": "<display>"},
+    ... 4 entries, physical order bottom→top
+  ]
+}
 ```
 
-The build output is `sudo_firmware.uf2`. To flash:
+Modifier mask matches the USB HID keyboard report byte:
+`0x01 = ctrl`, `0x02 = shift`, `0x04 = alt`, `0x08 = gui (cmd)`.
 
-1. Hold the BOOTSEL switch (SW1) and plug the device into USB.
-2. The `RPI-RP2` volume will mount.
-3. Drag `sudo_firmware.uf2` onto it.
-4. The board reboots into normal mode.
+If `config.json` is missing or invalid, `code.py` falls back to a
+passthrough config: F13–F16 + ctrl+shift, matching the app's default
+hotkey bindings.
 
-After that, use the sudo app's `[ flash config ]` button to push the user's
-button config into the reserved sector — no firmware reflash needed.
+## Manual install (without the app)
 
-## LED state protocol (CDC)
+If you want to install CircuitPython by hand:
 
-The app sends single bytes over the CDC channel; the firmware updates its
-under-glow accordingly. See `enum led_state_t` in `main.c` and
-`PadLEDState` in `Sudo/Sources/Sudo/Services/PadCommunicator.swift`.
-
-| Byte | Meaning |
-|---|---|
-| `0x01` | idle (dim under-glow) |
-| `0x02` | processing (1 Hz pulse) |
-| `0x03` | success (full-on flash, ~600 ms) |
-| `0x04` | failure (double-flash, ~800 ms) |
-| `0x05` | waiting for input (full-on) |
-| `0x06` | button pressed (~120 ms flash) |
-| `0x07` | reboot into BOOTSEL — used by the app to re-flash the device without the user pressing the BOOTSEL switch (calls `reset_usb_boot()`, doesn't return) |
-
-The `button pressed` state is also asserted internally by the firmware on
-every physical press, so under-glow feedback is instantaneous even when the
-host app isn't connected.
-
-## Wiring with the app
-
-| App-side change | Firmware effect |
-|---|---|
-| `[mode: dynamic]` + flash config | every button passes through F13–F16 with ctrl+shift; the macOS app does AI search |
-| `[mode: simple]` + apply preset + flash config | each button sends the preset's keycombo natively (no app needed) |
-| `[mode: custom]` + per-button config + flash config | each button sends the user-defined keycombo or media key natively |
-
-Note: `dynamic` mode flashes a passthrough config so the device still works
-when the app isn't running.
+1. Hold the BOOTSEL switch on the macropad while plugging in. `RPI-RP2`
+   mounts.
+2. Download the
+   [CircuitPython UF2 for the Raspberry Pi Pico](https://circuitpython.org/board/raspberry_pi_pico/)
+   and drag it onto `RPI-RP2`.
+3. Once `CIRCUITPY` mounts, drag `code.py` from this directory onto it.
+4. Optionally drop a `config.json` next to `code.py` — see schema above.
