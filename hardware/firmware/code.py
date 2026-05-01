@@ -138,7 +138,10 @@ config = load_config()
 
 # --- HID send helpers ------------------------------------------------------
 
-def send_key(modifiers, keycode):
+def send_key_down(modifiers, keycode):
+    """Begin holding a HID keystroke. The key stays pressed until
+    send_key_up() runs, so the host sees a real held key (which is what
+    YouTube needs for press-and-hold-for-2x-speed, etc)."""
     if keyboard is None:
         return
     try:
@@ -146,10 +149,29 @@ def send_key(modifiers, keycode):
         rpt[0] = modifiers & 0xFF
         rpt[2] = keycode & 0xFF
         keyboard.send_report(rpt)
-        time.sleep(0.015)
-        keyboard.send_report(bytearray(8))  # release
     except Exception:  # noqa: BLE001
         pass
+
+
+def send_key_up():
+    """Release whatever keyboard report is currently held. Single-button
+    case only — if a future revision needs simultaneous holds we can
+    track per-button and OR the reports, but the macropad only ever sees
+    one finger at a time in practice."""
+    if keyboard is None:
+        return
+    try:
+        keyboard.send_report(bytearray(8))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def send_key(modifiers, keycode):
+    """Tap: down + 15ms + up. Used for legacy mediakey paths and for
+    consumer-control keystrokes that don't make sense to hold."""
+    send_key_down(modifiers, keycode)
+    time.sleep(0.015)
+    send_key_up()
 
 
 def send_consumer(usage):
@@ -170,7 +192,14 @@ def send_consumer(usage):
 _CONSUMER = {16: 0xCD, 17: 0xB5, 18: 0xB6, 19: 0xB7, 20: 0xE2}
 
 
-def dispatch(i):
+# Track which buttons have an active key-down report on the host.
+# Indexed the same way as `buttons[]`. Only used for keycombo /
+# passthrough modes where holding is meaningful — mediakey codes are
+# always taps.
+key_held = [False] * 4
+
+
+def dispatch_press(i):
     b = config[i]
     mode = b.get("mode", "keycombo")
     if mode == "mediakey":
@@ -178,8 +207,16 @@ def dispatch(i):
         if usage:
             send_consumer(usage)
     else:
-        # keycombo or passthrough — both just type the key combo
-        send_key(b.get("modifiers", 0), b.get("keycode", 0))
+        # keycombo or passthrough — start holding the key. The matching
+        # release is sent from dispatch_release() when the user lets go.
+        send_key_down(b.get("modifiers", 0), b.get("keycode", 0))
+        key_held[i] = True
+
+
+def dispatch_release(i):
+    if key_held[i]:
+        send_key_up()
+        key_held[i] = False
 
 
 # --- Main loop -------------------------------------------------------------
@@ -201,7 +238,9 @@ while True:
                 debounce_until[i] = now + DEBOUNCE_MS
                 if not state:
                     flash_led()
-                    dispatch(i)
+                    dispatch_press(i)
+                else:
+                    dispatch_release(i)
         time.sleep(0.005)
     except Exception:  # noqa: BLE001
         try:
