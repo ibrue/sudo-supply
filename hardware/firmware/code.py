@@ -9,12 +9,19 @@
 # /config.json (optional, written by the app on flash) overrides per-button
 # behaviour for simple / custom mode.
 
+# Bump this whenever code.py changes meaningfully. The companion app reads it
+# off the CIRCUITPY drive (or via the future serial banner) so users can see
+# whether their pad needs a re-flash.
+FIRMWARE_VERSION = "1.5.0"
+
 import board
 import digitalio
 import json
 import supervisor
 import time
 import usb_hid
+
+print("sudo macropad firmware v{}".format(FIRMWARE_VERSION))
 
 
 # CircuitPython 9.x exposes ticks_ms() but NOT ticks_diff() — that's a

@@ -3,6 +3,11 @@
 The pad runs [CircuitPython](https://circuitpython.org/) on the RP2040.
 The whole firmware is a single Python file: [`code.py`](./code.py).
 
+The current firmware version is exposed as `FIRMWARE_VERSION` at the top
+of `code.py` and printed to the USB serial console on boot. Bump it
+whenever `code.py` changes meaningfully so the companion app can warn
+users their pad is out of date.
+
 ## Why CircuitPython
 
 We previously wrote our own C firmware against the Pico SDK. That worked
